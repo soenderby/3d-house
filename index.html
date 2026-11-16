@@ -12,7 +12,35 @@
   #hud .stars { font-size: 17px; margin-top: 4px; color: #ffd27a; }
   #help { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); font-size: 13px; opacity: 0.75; pointer-events: none; text-align: center; text-shadow: 0 1px 3px #000; white-space: nowrap; }
   #toast { position: fixed; top: 22%; left: 50%; transform: translateX(-50%); font-size: 22px; padding: 10px 22px; border-radius: 14px; background: #2a1a1acc; border: 1px solid #c9a050aa; opacity: 0; transition: opacity 0.4s; pointer-events: none; text-align: center; }
-  #mute { position: fixed; top: 12px; right: 14px; background: #2a1a1acc; color: #f6e7cf; border: 1px solid #c9a05088; border-radius: 10px; padding: 6px 10px; font-size: 18px; cursor: pointer; }
+  #mute, #chars { position: fixed; top: 12px; right: 14px; background: #2a1a1acc; color: #f6e7cf; border: 1px solid #c9a05088; border-radius: 10px; padding: 6px 10px; font-size: 18px; cursor: pointer; font-family: inherit; }
+  #chars { right: 62px; font-size: 15px; padding: 8px 12px; }
+  .pick { display: flex; gap: 10px; justify-content: center; margin: 16px 0 4px; flex-wrap: wrap; }
+  .pick button, #start .pick button { margin: 0; font-family: inherit; font-size: 15px; padding: 8px 14px 8px 10px; border-radius: 22px; border: 1px solid #c9a05066; background: #2a1a1a99; color: #f6e7cf; cursor: pointer; box-shadow: none; display: flex; align-items: center; gap: 8px; }
+  .pick button.on { border-color: #ffd27a; background: #5a3a24; box-shadow: 0 0 14px #ff9a4a55; }
+  .pick i { width: 16px; height: 16px; border-radius: 50%; display: inline-block; border: 1px solid #fff5; }
+  #start button.ghost { background: transparent; box-shadow: none; font-size: 16px; padding: 9px 22px; margin-left: 8px; }
+  /* ---- character showcase ---- */
+  #show { position: fixed; inset: 0; display: none; pointer-events: none; color: #3a2116; z-index: 5; }
+  body.show #show { display: block; }
+  body.show #hud, body.show #help, body.show #joy, body.show #jump, body.show #chars, body.show #toast { display: none !important; }
+  #show > * { pointer-events: auto; }
+  #show h2 { position: absolute; top: 10px; left: 0; right: 0; margin: 0; text-align: center; font-weight: normal; font-size: 22px; letter-spacing: 3px; text-transform: uppercase; pointer-events: none; }
+  #show .nav { position: absolute; top: 44%; width: 46px; height: 46px; border-radius: 50%; font-size: 22px; padding: 0; }
+  #show #prev { left: 14px; } #show #next { right: 14px; }
+  #show button { font-family: inherit; font-size: 14px; padding: 6px 12px; border-radius: 16px; border: 1px solid #7a4a2a88; background: #fff3e0cc; color: #3a2116; cursor: pointer; }
+  #show button.on { background: #6e1f2c; color: #fff1dc; border-color: #6e1f2c; }
+  #show button.big { font-size: 16px; padding: 9px 20px; border-radius: 22px; }
+  #show button.primary { background: #6e1f2c; color: #fff1dc; }
+  #panel { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); width: min(660px, calc(100vw - 20px)); box-sizing: border-box; background: #fff3e0e0; border: 1px solid #7a4a2a66; border-radius: 16px; padding: 10px 14px 12px; box-shadow: 0 4px 24px #3a211633; }
+  #panel .name { font-size: 24px; display: flex; align-items: center; gap: 10px; }
+  #panel .name i { width: 18px; height: 18px; border-radius: 50%; display: inline-block; border: 1px solid #0003; }
+  #panel .name small { font-size: 14px; opacity: .7; margin-left: auto; }
+  #panel .blurb { font-size: 14px; opacity: .85; margin: 2px 0 8px; }
+  #panel .row { display: flex; align-items: center; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+  #panel .row b { font-weight: normal; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; opacity: .6; width: 54px; }
+  #panel .actions { justify-content: flex-end; margin-top: 10px; }
+  @media (max-width: 520px) { #show h2 { font-size: 15px; letter-spacing: 1.5px; top: 16px; text-align: left; left: 14px; } }
+  @media (max-height: 560px) { #panel .blurb { display: none; } #panel { padding: 6px 12px 8px; } #panel .row { margin-top: 4px; } }
   #start { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: radial-gradient(ellipse at center, #3a2318ee, #120d0cf5); z-index: 10; }
   #start .card { text-align: center; max-width: 440px; padding: 28px; }
   #start h1 { font-weight: normal; font-size: 34px; margin: 0 0 10px; color: #ffd9a0; }
@@ -31,17 +59,32 @@
 <body>
 <div id="app"></div>
 <div id="hud"><div class="title">Rainy Evening House</div><div class="stars" id="stars">★ 0 / 0</div></div>
-<div id="help">WASD / arrows to run · Space to jump · drag mouse to look around · scroll to zoom</div>
+<div id="help">WASD / arrows to run · Space to jump · drag mouse to look around · scroll to zoom · C for characters</div>
 <div id="toast"></div>
 <button id="mute" title="Sound">🔊</button>
+<button id="chars" title="Character showcase (C)">Characters</button>
 <div id="joy"><div id="knob"></div></div>
 <button id="jump">Jump</button>
 <div id="start"><div class="card">
   <h1>Rainy Evening House</h1>
   <p>It's pouring outside, but the candles are lit.<br/>Wander the house and find the little golden stars tucked away in every room — and the garden.</p>
   <p style="font-size:14px;opacity:.7">Keyboard: WASD / arrows + Space · Mouse drag to look<br/>Touch: left stick to move · drag right side to look</p>
-  <button id="go">Step inside</button>
+  <div class="pick" id="pick"></div>
+  <button id="go">Step inside</button><button id="openShow" class="ghost">Character showcase</button>
 </div></div>
+<div id="show">
+  <h2>Character Showcase</h2>
+  <button class="nav" id="prev" title="Previous character">‹</button>
+  <button class="nav" id="next" title="Next character">›</button>
+  <div id="panel">
+    <div class="name"><i id="swatch"></i><span id="cname"></span><small id="cheight"></small></div>
+    <div class="blurb" id="cblurb"></div>
+    <div class="row"><b>View</b><span id="views"></span><button id="spin">Turntable</button><button id="lineup">Height line-up</button></div>
+    <div class="row"><b>Motion</b><span id="anims"></span></div>
+    <div class="row" id="exprRow"><b>Face</b><span id="exprs"></span></div>
+    <div class="row actions"><button class="big" id="showBack">Back</button><button class="big primary" id="playAs">Play</button></div>
+  </div>
+</div>
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>

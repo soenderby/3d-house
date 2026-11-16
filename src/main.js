@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/BufferGeometryUtils.js';
+import { CHARACTERS, EXPRESSIONS, buildCharacter, animateRig } from './characters.js';
 
 // =====================================================================
 //  Renderer / scene
@@ -1393,46 +1394,65 @@ addStar(8.45, F2 + 0.8, 9.55, 'at the top of the stairs');
 //  The player character
 // =====================================================================
 const player = new THREE.Group();
+player.userData.dynamic = true;
 scene.add(player);
-const body = new THREE.Group();
-player.add(body);
-const sweater = new THREE.MeshPhysicalMaterial({ color: 0x8a2a3a, roughness: 0.9, sheen: 0.6, sheenColor: new THREE.Color(0xff9090) });
-{
+
+// The original cozy-sweater figure, kept as a third selectable character.
+function buildClassic() {
+  const root = new THREE.Group();
+  const body = new THREE.Group();
+  root.add(body);
+  const sweater = new THREE.MeshPhysicalMaterial({ color: 0x8a2a3a, roughness: 0.9, sheen: 0.6, sheenColor: new THREE.Color(0xff9090) });
   const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.2, 0.32, 6, 14), sweater);
   torso.position.y = 0.92; torso.scale.set(1, 1, 0.8); body.add(torso);
   const scarf = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.055, 8, 18), MAT.mustard);
   scarf.rotation.x = Math.PI / 2; scarf.position.y = 1.18; body.add(scarf);
   const tail = box(0.1, 0.32, 0.04, MAT.mustard, 0.08, 0.86, 0.17, body); tail.rotation.z = 0.15;
-  const head = sph(0.19, MAT.skin, 0, 1.38, 0, body);
-  void head;
+  sph(0.19, MAT.skin, 0, 1.38, 0, body);
   sph(0.205, MAT.hair, 0, 1.43, -0.03, body, 1, 0.95, 1);
   sph(0.19, MAT.hair, 0, 1.36, -0.07, body, 1.02, 1, 0.9);
   sph(0.09, MAT.hair, 0, 1.6, -0.12, body); // bun
   for (const s of [-1, 1]) sph(0.025, MAT.black, s * 0.07, 1.39, 0.17, body, 1, 1.3, 0.6);
   for (const s of [-1, 1]) sph(0.03, std({ color: 0xe89a90 }), s * 0.11, 1.33, 0.15, body, 1, 0.7, 0.5);
+  const J = { hips: body, torso: new THREE.Group() };
+  const limb = (name, x, y, mat, len, r) => {
+    const pivot = new THREE.Group();
+    pivot.position.set(x, y, 0);
+    const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, len, 4, 10), mat);
+    m.position.y = -len / 2 - r * 0.5;
+    pivot.add(m);
+    body.add(pivot);
+    J[name] = pivot;
+  };
+  limb('legR', -0.09, 0.62, MAT.pants, 0.4, 0.075);
+  limb('legL', 0.09, 0.62, MAT.pants, 0.4, 0.075);
+  limb('armR', -0.26, 1.12, sweater, 0.36, 0.06);
+  limb('armL', 0.26, 1.12, sweater, 0.36, 0.06);
+  for (const s of ['legL', 'legR']) sph(0.08, MAT.darkWood, 0, -0.62, 0.05, J[s], 1, 0.6, 1.4); // boots
+  for (const s of ['armL', 'armR']) sph(0.055, MAT.skin, 0, -0.5, 0, J[s]);
+  return {
+    def: { id: 'classic', name: 'Scarlet', height: 1.62, colors: { outfit: 0x8a2a3a }, blurb: 'The original house-wanderer, bundled up in a red sweater and mustard scarf.' },
+    root, joints: J, height: 1.62, name: 'Scarlet', rest: 0.08, expr: 'smile', setExpression() {}, tickFace() {},
+  };
 }
-const limbs = {};
-function limb(name, x, y, mat, len, r) {
-  const pivot = new THREE.Group();
-  pivot.position.set(x, y, 0);
-  const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, len, 4, 10), mat);
-  m.position.y = -len / 2 - r * 0.5;
-  pivot.add(m);
-  body.add(pivot);
-  limbs[name] = pivot;
-}
-limb('legL', -0.09, 0.62, MAT.pants, 0.4, 0.075);
-limb('legR', 0.09, 0.62, MAT.pants, 0.4, 0.075);
-limb('armL', -0.26, 1.12, sweater, 0.36, 0.06);
-limb('armR', 0.26, 1.12, sweater, 0.36, 0.06);
-for (const s of ['legL', 'legR']) sph(0.08, MAT.darkWood, 0, -0.62, 0.05, limbs[s], 1, 0.6, 1.4); // boots
-for (const s of ['armL', 'armR']) sph(0.055, MAT.skin, 0, -0.5, 0, limbs[s]);
+const rigs = [...CHARACTERS.map(buildCharacter), buildClassic()];
+// a small warm light that travels with the player so the figure reads in the dim rooms
+{ const glow = new THREE.PointLight(0xffdcb8, 0.55, 3.5, 2); glow.position.set(0, 1.9, 0.6); player.add(glow); }
+let rig = null;
 // soft blob shadow
 const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.32, 20), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35, depthWrite: false }));
 shadow.rotation.x = -Math.PI / 2;
 scene.add(shadow);
 
 const P = { pos: new THREE.Vector3(3.0, 0, 6.8), vy: 0, onGround: true, r: 0.27, h: 1.62, yaw: Math.PI, speed: 0, walk: 0 };
+function setCharacter(i) {
+  if (rig) player.remove(rig.root);
+  rig = rigs[i];
+  rig.root.position.set(0, 0, 0); rig.root.rotation.set(0, 0, 0);
+  player.add(rig.root);
+  P.h = rig.height;
+  try { localStorage.setItem('house-character', rig.def.id); } catch (e) { /* private mode */ }
+}
 const STEP = 0.36, G = 16, JUMP = 5.9, RUN = 4.3;
 
 // =====================================================================
@@ -1499,7 +1519,7 @@ function physics(dt, mx, mz, jump) {
   for (let s = 0; s < sub; s++) {
     moveAxis(mx * h, 0);
     moveAxis(0, mz * h);
-    if (jump && P.onGround) { P.vy = JUMP; P.onGround = false; jump = false; sfx('jump'); }
+    if (jump && P.onGround) { P.vy = JUMP; P.onGround = false; jump = false; sfx('jump'); rig.setExpression('wow', 0.55); }
     const wasGround = P.onGround;
     P.vy -= G * h;
     let ny = P.pos.y + P.vy * h;
@@ -1522,8 +1542,10 @@ function physics(dt, mx, mz, jump) {
 const keys = new Set();
 let jumpQueued = false;
 window.addEventListener('keydown', (e) => {
+  if (show.active) { showKey(e); return; }
   keys.add(e.code);
   if (e.code === 'Space') { jumpQueued = true; e.preventDefault(); }
+  if (e.code === 'KeyC' && started) openShowcase();
 });
 window.addEventListener('keyup', (e) => keys.delete(e.code));
 window.addEventListener('blur', () => keys.clear());
@@ -1534,11 +1556,12 @@ renderer.domElement.addEventListener('mousedown', (e) => { dragging = true; last
 window.addEventListener('mouseup', () => { dragging = false; });
 window.addEventListener('mousemove', (e) => {
   if (!dragging) return;
+  if (show.active) { showDrag(e.clientX - lastX, e.clientY - lastY, e.shiftKey || (e.buttons & 2)); lastX = e.clientX; lastY = e.clientY; return; }
   cam.yaw -= (e.clientX - lastX) * 0.006;
   cam.pitch = THREE.MathUtils.clamp(cam.pitch + (e.clientY - lastY) * 0.005, 0.12, 1.35);
   lastX = e.clientX; lastY = e.clientY;
 });
-renderer.domElement.addEventListener('wheel', (e) => { cam.dist = THREE.MathUtils.clamp(cam.dist + e.deltaY * 0.005, 2.5, 12); e.preventDefault(); }, { passive: false });
+renderer.domElement.addEventListener('wheel', (e) => { if (show.active) { show.zoom = THREE.MathUtils.clamp(show.zoom * Math.exp(e.deltaY * 0.0012), 0.28, 1.6); e.preventDefault(); return; } cam.dist = THREE.MathUtils.clamp(cam.dist + e.deltaY * 0.005, 2.5, 12); e.preventDefault(); }, { passive: false });
 renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
 
 // touch: left joystick + right-side camera drag
@@ -1548,6 +1571,7 @@ const joyEl = document.getElementById('joy'), knob = document.getElementById('kn
 function setTouchMode() { document.body.classList.add('touch'); }
 window.addEventListener('touchstart', (e) => {
   setTouchMode();
+  if (show.active) { showTouch(e); return; }
   for (const t of e.changedTouches) {
     if (t.target.id === 'jump' || t.target.id === 'mute' || t.target.id === 'go') continue;
     if (t.clientX < window.innerWidth * 0.45 && joy.id === null) {
@@ -1568,6 +1592,7 @@ function updateJoy(t) {
   knob.style.transform = `translate(${dx}px, ${dy}px)`;
 }
 window.addEventListener('touchmove', (e) => {
+  if (show.active) { showTouch(e, true); if (e.target === renderer.domElement) e.preventDefault(); return; }
   for (const t of e.changedTouches) {
     if (t.identifier === joy.id) updateJoy(t);
     else if (t.identifier === look.id) {
@@ -1579,6 +1604,7 @@ window.addEventListener('touchmove', (e) => {
   e.preventDefault();
 }, { passive: false });
 function endTouch(e) {
+  show.touch = null;
   for (const t of e.changedTouches) {
     if (t.identifier === joy.id) { joy.id = null; joy.x = joy.y = 0; knob.style.transform = ''; }
     if (t.identifier === look.id) look.id = null;
@@ -1656,12 +1682,212 @@ function updateStarHud() { const n = stars.filter((s) => s.got).length; starsEl.
 updateStarHud();
 
 let started = false;
-document.getElementById('go').addEventListener('click', () => {
+function beginGame() {
   document.getElementById('start').style.display = 'none';
+  if (started) return;
   started = true;
   startAudio();
   toast('Find all the golden stars ✨', 3);
-});
+}
+document.getElementById('go').addEventListener('click', beginGame);
+
+// ---- character picker on the title card
+const pickEl = document.getElementById('pick');
+function refreshPicker() {
+  pickEl.innerHTML = '';
+  rigs.forEach((r, i) => {
+    const b = document.createElement('button');
+    b.innerHTML = `<i style="background:#${new THREE.Color(r.def.colors.outfit).getHexString()}"></i>${r.name}`;
+    if (r === rig) b.className = 'on';
+    b.addEventListener('click', () => { setCharacter(i); refreshPicker(); });
+    pickEl.appendChild(b);
+  });
+}
+{
+  let saved = null;
+  try { saved = localStorage.getItem('house-character'); } catch (e) { /* private mode */ }
+  const want = new URLSearchParams(location.search).get('char') || saved;
+  setCharacter(Math.max(0, rigs.findIndex((r) => r.def.id === want)));
+  refreshPicker();
+}
+
+// =====================================================================
+//  Character showcase: a parchment studio with a turntable
+// =====================================================================
+const show = {
+  active: false, scene: new THREE.Scene(), cam: new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 0.05, 60),
+  idx: 0, yaw: 0.35, yawT: 0.35, pitch: 0.06, zoom: 1, view: 'front', anim: 'idle', expr: 'smile', spin: false, lineup: false,
+  panY: 0, phase: 0, speed: 0, focus: new THREE.Vector3(0, 0.8, 0), touch: null, markers: new THREE.Group(), blobs: [],
+};
+{
+  const S = show.scene;
+  S.background = new THREE.Color(0xf1d9b8);
+  S.fog = new THREE.Fog(0xf1d9b8, 9, 22);
+  S.add(new THREE.HemisphereLight(0xfff6e6, 0xdcb690, 1.4));
+  const key = new THREE.DirectionalLight(0xfff1dc, 2.3); key.position.set(-2.2, 3.4, 4); S.add(key);
+  const fill = new THREE.DirectionalLight(0xffe2c0, 0.7); fill.position.set(3.5, 1.5, 2.5); S.add(fill);
+  const rim = new THREE.DirectionalLight(0xffd0a0, 1.3); rim.position.set(1.5, 2.6, -4); S.add(rim);
+  const bounce = new THREE.DirectionalLight(0xffe6c8, 0.55); bounce.position.set(0, -1.5, 3); S.add(bounce);
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(14, 48), std({ color: 0xe9cda8, roughness: 1 }));
+  floor.rotation.x = -Math.PI / 2; S.add(floor);
+  const ped = new THREE.Mesh(new THREE.CylinderGeometry(2.3, 2.36, 0.04, 64), std({ color: 0xf6e4c8, roughness: 0.9 }));
+  ped.position.y = 0.0; S.add(ped);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(2.3, 0.012, 6, 96), std({ color: 0x8a5a34, roughness: 0.6 }));
+  ring.rotation.x = Math.PI / 2; ring.position.y = 0.022; S.add(ring);
+  show.stage = new THREE.Group(); show.stage.position.y = 0.02; S.add(show.stage);
+  S.add(show.markers);
+  for (let i = 0; i < rigs.length; i++) {
+    const b = new THREE.Mesh(new THREE.CircleGeometry(0.27, 24), new THREE.MeshBasicMaterial({ color: 0x5a3018, transparent: true, opacity: 0.22, depthWrite: false }));
+    b.rotation.x = -Math.PI / 2; b.position.y = 0.024; b.scale.setScalar(rigs[i].height / 1.6);
+    show.stage.add(b); show.blobs.push(b);
+  }
+}
+function labelSprite(text, color = '#3a2116') {
+  const tex = canvasTex(256, 64, (g) => { g.clearRect(0, 0, 256, 64); g.font = '34px Georgia'; g.fillStyle = color; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 128, 34); });
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, fog: false }));
+  sp.scale.set(0.6, 0.15, 1);
+  return sp;
+}
+const LINE_X = [-0.72, 0.05, 0.86];
+function layoutShowcase() {
+  const st = show.stage, cur = rigs[show.idx];
+  show.markers.clear();
+  rigs.forEach((r, i) => {
+    const on = show.lineup || i === show.idx;
+    if (on) st.add(r.root); else st.remove(r.root);
+    const x = show.lineup ? LINE_X[i] : 0;
+    r.root.position.set(x, 0, 0); r.root.rotation.set(0, 0, 0);
+    show.blobs[i].visible = on; show.blobs[i].position.x = x;
+    if (show.lineup) {
+      // dashed crown line + height label behind each figure
+      const y = r.height + 0.02;
+      for (let k = -4; k <= 4; k++) {
+        const d = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.006, 0.006), new THREE.MeshBasicMaterial({ color: r.def.colors.outfit }));
+        d.position.set(x + k * 0.09, y, -0.45); show.markers.add(d);
+      }
+      const l1 = labelSprite(`${r.name} · ${r.height.toFixed(2)} m`); l1.position.set(x, y + 0.1, -0.45); show.markers.add(l1);
+    }
+  });
+  document.getElementById('cname').textContent = cur.name;
+  document.getElementById('cheight').textContent = `${cur.height.toFixed(2)} m`;
+  document.getElementById('cblurb').textContent = cur.def.blurb;
+  document.getElementById('swatch').style.background = '#' + new THREE.Color(cur.def.colors.outfit).getHexString();
+  document.getElementById('playAs').textContent = `Play as ${cur.name}`;
+  document.getElementById('exprRow').style.visibility = cur.def.id === 'classic' ? 'hidden' : 'visible';
+  document.getElementById('lineup').classList.toggle('on', show.lineup);
+  document.getElementById('spin').classList.toggle('on', show.spin);
+  for (const [id, key] of [['views', 'view'], ['anims', 'anim'], ['exprs', 'expr']]) for (const b of document.getElementById(id).children) b.classList.toggle('on', b.dataset.k === show[key]);
+  for (const r of rigs) r.setExpression(show.expr);
+}
+const VIEWS = { front: ['Front', 0], side: ['Side', -Math.PI / 2], back: ['Back', Math.PI], face: ['Face', 0.3] };
+const ANIMS = { idle: 'Idle', walk: 'Walk', run: 'Run', wave: 'Wave', still: 'Reference pose' };
+function showSet(key, val) {
+  show[key] = val;
+  if (key === 'view') {
+    // turn the shortest way round to the requested side
+    const target = VIEWS[val][1];
+    show.yawT = show.yaw + Math.atan2(Math.sin(target - show.yaw), Math.cos(target - show.yaw));
+    show.pitch = val === 'face' ? 0.02 : 0.06; show.zoom = val === 'face' ? 0.3 : 1; show.spin = false; show.panY = 0;
+  }
+  layoutShowcase();
+}
+function fillButtons(id, key, entries) {
+  const el = document.getElementById(id);
+  for (const [k, label] of entries) {
+    const b = document.createElement('button'); b.textContent = label; b.dataset.k = k; b.style.marginRight = '6px';
+    b.addEventListener('click', () => showSet(key, k));
+    el.appendChild(b);
+  }
+}
+fillButtons('views', 'view', Object.entries(VIEWS).map(([k, v]) => [k, v[0]]));
+fillButtons('anims', 'anim', Object.entries(ANIMS));
+fillButtons('exprs', 'expr', Object.entries(EXPRESSIONS).filter(([, v]) => v.label).map(([k, v]) => [k, v.label]));
+function showStep(d) { show.idx = (show.idx + d + rigs.length) % rigs.length; layoutShowcase(); }
+function openShowcase() {
+  if (show.active) return;
+  show.active = true; show.idx = rigs.indexOf(rig); show.expr = 'smile';
+  keys.clear(); joy.id = null; joy.x = joy.y = 0;
+  player.remove(rig.root);
+  document.body.classList.add('show');
+  document.getElementById('start').style.display = 'none';
+  layoutShowcase();
+}
+function closeShowcase(play) {
+  if (!show.active) return;
+  show.active = false;
+  for (const r of rigs) { show.stage.remove(r.root); r.setExpression('smile'); }
+  setCharacter(play ? show.idx : rigs.indexOf(rig));
+  refreshPicker();
+  document.body.classList.remove('show');
+  if (play) beginGame(); else if (!started) document.getElementById('start').style.display = 'flex';
+}
+function showDrag(dx, dy, pan) {
+  if (pan) { show.panY = THREE.MathUtils.clamp(show.panY + dy * 0.0025 * show.zoom, -1, 1); return; }
+  show.yawT -= dx * 0.008; show.yaw = show.yawT;
+  show.pitch = THREE.MathUtils.clamp(show.pitch + dy * 0.005, -0.25, 1.1);
+  show.view = ''; for (const b of document.getElementById('views').children) b.classList.remove('on');
+}
+function showTouch(e, move) {
+  if (e.target !== renderer.domElement) return;
+  const ts = e.touches;
+  if (ts.length === 1) {
+    const t = ts[0];
+    if (move && show.touch && show.touch.n === 1) showDrag(t.clientX - show.touch.x, t.clientY - show.touch.y);
+    show.touch = { n: 1, x: t.clientX, y: t.clientY };
+  } else if (ts.length >= 2) {
+    const d = Math.hypot(ts[0].clientX - ts[1].clientX, ts[0].clientY - ts[1].clientY);
+    const my = (ts[0].clientY + ts[1].clientY) / 2;
+    if (move && show.touch && show.touch.n === 2) { show.zoom = THREE.MathUtils.clamp(show.zoom * show.touch.d / d, 0.28, 1.6); showDrag(0, my - show.touch.y, true); }
+    show.touch = { n: 2, d, y: my };
+  }
+}
+function showKey(e) {
+  if (e.code === 'ArrowLeft' || e.code === 'KeyA') showStep(-1);
+  else if (e.code === 'ArrowRight' || e.code === 'KeyD') showStep(1);
+  else if (e.code === 'Escape' || e.code === 'KeyC') closeShowcase(false);
+  else if (e.code === 'Enter') closeShowcase(true);
+}
+document.getElementById('prev').addEventListener('click', () => showStep(-1));
+document.getElementById('next').addEventListener('click', () => showStep(1));
+document.getElementById('spin').addEventListener('click', () => { show.spin = !show.spin; layoutShowcase(); });
+document.getElementById('lineup').addEventListener('click', () => { show.lineup = !show.lineup; layoutShowcase(); });
+document.getElementById('showBack').addEventListener('click', () => closeShowcase(false));
+document.getElementById('playAs').addEventListener('click', () => closeShowcase(true));
+document.getElementById('openShow').addEventListener('click', openShowcase);
+document.getElementById('chars').addEventListener('click', openShowcase);
+
+function tickShowcase(dt) {
+  const cur = rigs[show.idx];
+  const target = { idle: 0, walk: 1.5, run: 4.3, wave: 0, still: 0 }[show.anim];
+  show.speed = THREE.MathUtils.lerp(show.speed, target, Math.min(1, dt * 6));
+  show.phase += dt * show.speed * 2.6;
+  for (const r of rigs) {
+    if (!r.root.parent) continue;
+    animateRig(r, { t: elapsed + r.height * 7, speed: show.speed, phase: show.phase + (r === cur ? 0 : r.height * 3), air: false, action: show.anim });
+    if (show.expr === 'smile') r.tickFace(dt);
+  }
+  if (show.spin) { show.yawT += dt * 0.7; }
+  show.yaw = THREE.MathUtils.lerp(show.yaw, show.yawT, Math.min(1, dt * 7));
+  // frame the figure (or the whole line-up), keeping clear of the info panel
+  const c = show.cam, aspect = window.innerWidth / window.innerHeight;
+  const panelH = document.getElementById('panel').offsetHeight + 20;
+  const h = show.lineup ? 1.95 : cur.height + 0.1, w = show.lineup ? 2.9 : cur.height * 0.62;
+  const freeFrac = Math.max(0.35, 1 - (panelH + 44) / window.innerHeight);
+  const tanV = Math.tan(c.fov * Math.PI / 360);
+  const dist = Math.max(h / (2 * tanV * freeFrac), w / (2 * tanV * aspect)) * 1.04 * show.zoom;
+  const face = show.zoom < 0.75 ? THREE.MathUtils.smoothstep(0.75 - show.zoom, 0, 0.45) : 0;
+  const fy = THREE.MathUtils.lerp(h * 0.5, cur.height * 0.89, show.lineup ? 0 : face);
+  show.focus.lerp(tmpV.set(show.lineup ? 0.06 : 0, fy + show.panY, 0), Math.min(1, dt * 7));
+  const cp = Math.cos(show.pitch);
+  c.position.set(show.focus.x + Math.sin(show.yaw) * cp * dist, show.focus.y + Math.sin(show.pitch) * dist, show.focus.z + Math.cos(show.yaw) * cp * dist);
+  c.lookAt(show.focus);
+  // shift the view up so the figure sits in the free area above the panel
+  const off = (panelH - 44) / 2;
+  c.setViewOffset(window.innerWidth, window.innerHeight, 0, off, window.innerWidth, window.innerHeight);
+  c.aspect = aspect; c.updateProjectionMatrix();
+  renderer.render(show.scene, c);
+}
+if (location.hash === '#showcase') openShowcase();
 
 // =====================================================================
 //  Main loop
@@ -1675,6 +1901,7 @@ let catCooldown = 0, won = false, elapsed = 0;
 function tick() {
   const dt = Math.min(clock.getDelta(), 0.05);
   elapsed += dt;
+  if (show.active) { tickShowcase(dt); requestAnimationFrame(tick); return; }
 
   // ---- input -> movement
   let ix = 0, iz = 0;
@@ -1707,15 +1934,8 @@ function tick() {
   }
   P.speed = THREE.MathUtils.lerp(P.speed, mag * speed, Math.min(1, dt * 10));
   P.walk += dt * P.speed * 2.6;
-  const swing = Math.sin(P.walk) * Math.min(1, P.speed / 3) * 0.75;
-  const air = !P.onGround;
-  limbs.legL.rotation.x = air ? -0.5 : swing;
-  limbs.legR.rotation.x = air ? 0.3 : -swing;
-  limbs.armL.rotation.x = air ? -2.4 : -swing * 0.9;
-  limbs.armR.rotation.x = air ? -2.4 : swing * 0.9;
-  limbs.armL.rotation.z = air ? -0.3 : -0.08; limbs.armR.rotation.z = air ? 0.3 : 0.08;
-  body.position.y = P.onGround ? Math.abs(Math.sin(P.walk)) * 0.05 * Math.min(1, P.speed / 3) : 0;
-  body.rotation.x = Math.min(1, P.speed / 4) * 0.08;
+  animateRig(rig, { t: elapsed, speed: P.speed, phase: P.walk, air: !P.onGround });
+  rig.tickFace(dt);
   player.position.copy(P.pos);
   player.rotation.y = P.yaw;
   const gy = groundAt(P.pos.x, P.pos.z, P.pos.y);
@@ -1729,7 +1949,7 @@ function tick() {
   for (const s of stars) if (!s.got) s.m.visible = s.upper ? showUpper : true;
 
   // ---- camera
-  const tgt = tmpV.set(P.pos.x, P.pos.y + 1.25, P.pos.z);
+  const tgt = tmpV.set(P.pos.x, P.pos.y + rig.height * 0.78, P.pos.z);
   cam.target.lerp(tgt, Math.min(1, dt * 8));
   const cp = Math.cos(cam.pitch);
   camera.position.set(
@@ -1782,6 +2002,7 @@ function tick() {
         toast('✨ All stars found! ✨<br><span style="font-size:15px">Time for tea and a book while the rain falls.</span>', 6);
       } else {
         sfx('star');
+        rig.setExpression('laugh', 1.6);
         toast(`★ Found a star ${s.hint}!`, 2);
       }
     }
@@ -1821,5 +2042,5 @@ window.addEventListener('resize', () => {
 });
 
 // expose a tiny debug handle (handy for tests)
-window.__game = { P, cam, stars, colliders, renderer, start: () => document.getElementById('go').click() };
+window.__game = { P, cam, stars, colliders, renderer, show, rigs, showSet, openShowcase, closeShowcase, setCharacter, start: () => document.getElementById('go').click() };
 tick();
