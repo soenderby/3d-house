@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Rainy Evening House</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #141a24; font-family: Georgia, 'Times New Roman', serif; color: #f6e7cf; touch-action: none; user-select: none; -webkit-user-select: none; }
+  #app canvas { display: block; }
+  #hud { position: fixed; top: 14px; left: 16px; pointer-events: none; text-shadow: 0 1px 4px #000a; }
+  #hud .title { font-size: 20px; letter-spacing: 0.5px; }
+  #hud .stars { font-size: 17px; margin-top: 4px; color: #ffd27a; }
+  #help { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); font-size: 13px; opacity: 0.75; pointer-events: none; text-align: center; text-shadow: 0 1px 3px #000; white-space: nowrap; }
+  #toast { position: fixed; top: 22%; left: 50%; transform: translateX(-50%); font-size: 22px; padding: 10px 22px; border-radius: 14px; background: #2a1a1acc; border: 1px solid #c9a050aa; opacity: 0; transition: opacity 0.4s; pointer-events: none; text-align: center; }
+  #mute { position: fixed; top: 12px; right: 14px; background: #2a1a1acc; color: #f6e7cf; border: 1px solid #c9a05088; border-radius: 10px; padding: 6px 10px; font-size: 18px; cursor: pointer; }
+  #start { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: radial-gradient(ellipse at center, #3a2318ee, #120d0cf5); z-index: 10; }
+  #start .card { text-align: center; max-width: 440px; padding: 28px; }
+  #start h1 { font-weight: normal; font-size: 34px; margin: 0 0 10px; color: #ffd9a0; }
+  #start p { line-height: 1.5; opacity: 0.9; }
+  #start button { margin-top: 14px; font-family: inherit; font-size: 20px; padding: 12px 30px; border-radius: 30px; border: 1px solid #c9a050; background: #6e1f2c; color: #fff1dc; cursor: pointer; box-shadow: 0 0 24px #ff9a4a55; }
+  #joy { position: fixed; left: 28px; bottom: 40px; width: 130px; height: 130px; border-radius: 50%; background: #ffffff14; border: 2px solid #ffffff30; display: none; }
+  #knob { position: absolute; left: 40px; top: 40px; width: 50px; height: 50px; border-radius: 50%; background: #ffd9a088; }
+  #jump { position: fixed; right: 30px; bottom: 50px; width: 82px; height: 82px; border-radius: 50%; background: #6e1f2caa; border: 2px solid #c9a050aa; color: #fff1dc; font-family: inherit; font-size: 16px; display: none; }
+  body.touch #joy, body.touch #jump { display: block; }
+  body.touch #help { display: none; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.min.js", "three/addons/": "./vendor/" } }
+</script>
+</head>
+<body>
+<div id="app"></div>
+<div id="hud"><div class="title">Rainy Evening House</div><div class="stars" id="stars">★ 0 / 0</div></div>
+<div id="help">WASD / arrows to run · Space to jump · drag mouse to look around · scroll to zoom</div>
+<div id="toast"></div>
+<button id="mute" title="Sound">🔊</button>
+<div id="joy"><div id="knob"></div></div>
+<button id="jump">Jump</button>
+<div id="start"><div class="card">
+  <h1>Rainy Evening House</h1>
+  <p>It's pouring outside, but the candles are lit.<br/>Wander the house and find the little golden stars tucked away in every room — and the garden.</p>
+  <p style="font-size:14px;opacity:.7">Keyboard: WASD / arrows + Space · Mouse drag to look<br/>Touch: left stick to move · drag right side to look</p>
+  <button id="go">Step inside</button>
+</div></div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
