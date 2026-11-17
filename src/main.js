@@ -10,6 +10,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, "ontouchstart" in windo
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.15;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; // only the showcase's key light casts
 document.getElementById('app').appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
@@ -1724,14 +1725,16 @@ const show = {
   S.background = new THREE.Color(0xf1d9b8);
   S.fog = new THREE.Fog(0xf1d9b8, 9, 22);
   S.add(new THREE.HemisphereLight(0xfff6e6, 0xdcb690, 1.4));
-  const key = new THREE.DirectionalLight(0xfff1dc, 2.3); key.position.set(-2.2, 3.4, 4); S.add(key);
+  const key = new THREE.DirectionalLight(0xfff1dc, 1.9); key.position.set(-2.2, 3.6, 4.2); S.add(key);
+  key.castShadow = true; key.shadow.mapSize.set(2048, 2048); key.shadow.bias = -0.0004; key.shadow.normalBias = 0.012; key.shadow.radius = 5;
+  Object.assign(key.shadow.camera, { left: -1.9, right: 1.9, top: 2.3, bottom: -0.3, near: 1, far: 12 });
   const fill = new THREE.DirectionalLight(0xffe2c0, 0.7); fill.position.set(3.5, 1.5, 2.5); S.add(fill);
   const rim = new THREE.DirectionalLight(0xffd0a0, 1.3); rim.position.set(1.5, 2.6, -4); S.add(rim);
   const bounce = new THREE.DirectionalLight(0xffe6c8, 0.55); bounce.position.set(0, -1.5, 3); S.add(bounce);
   const floor = new THREE.Mesh(new THREE.CircleGeometry(14, 48), std({ color: 0xe9cda8, roughness: 1 }));
   floor.rotation.x = -Math.PI / 2; S.add(floor);
   const ped = new THREE.Mesh(new THREE.CylinderGeometry(2.3, 2.36, 0.04, 64), std({ color: 0xf6e4c8, roughness: 0.9 }));
-  ped.position.y = 0.0; S.add(ped);
+  ped.position.y = 0.0; ped.receiveShadow = true; S.add(ped);
   const ring = new THREE.Mesh(new THREE.TorusGeometry(2.3, 0.012, 6, 96), std({ color: 0x8a5a34, roughness: 0.6 }));
   ring.rotation.x = Math.PI / 2; ring.position.y = 0.022; S.add(ring);
   show.stage = new THREE.Group(); show.stage.position.y = 0.02; S.add(show.stage);
@@ -1885,7 +1888,9 @@ function tickShowcase(dt) {
   const off = (panelH - 44) / 2;
   c.setViewOffset(window.innerWidth, window.innerHeight, 0, off, window.innerWidth, window.innerHeight);
   c.aspect = aspect; c.updateProjectionMatrix();
+  renderer.toneMapping = THREE.NeutralToneMapping; renderer.toneMappingExposure = 1;
   renderer.render(show.scene, c);
+  renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.15;
 }
 if (location.hash === '#showcase') openShowcase();
 
